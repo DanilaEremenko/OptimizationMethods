@@ -4,6 +4,7 @@ from scipy.optimize import LinearConstraint
 
 
 def check_condition(na, nb):
+    assert type(na) == type(nb) == int
     if d_min <= da * na + db * nb <= d_max \
             and t_min <= ta * na + tb * nb <= t_max \
             and na >= 0 \
@@ -18,12 +19,19 @@ def get_results(na, nb):
 
 
 def verbose_res_print(res, title):
-    actual_results = get_results(res.x[0], res.x[1])
+    row_args = tuple(res.x)
+    actual_args = tuple(int(round(arg, 0)) for arg in res.x)
+
     print(f"---{title.upper()}---")
-    print(f"na = {res.x[0]}, nb = {res.x[1]}")
+    print("row args    : na = %f, nb = %f" % (row_args))
+    print("actual args : na = %d, nb = %d" % (actual_args))
     # print(f"fun = {-res.fun}")
-    print(f"conditions respected: {check_condition(res.x[0], res.x[1])}")
-    print(f"y1 = {actual_results[0]}, y2 = {actual_results[1]}\n")
+    cond_respected = check_condition(*actual_args)
+    print(f"conditions respected: {cond_respected}")
+    if cond_respected:
+        print(f"\td remeains: {d_max - da * actual_args[0] - db * actual_args[1]}")
+        print(f"\tt remains: {t_max - ta * actual_args[0] - tb * actual_args[1]}")
+        print("y1 = %.2f, y2 = %.2f\n" % (get_results(*actual_args)))
 
 
 if __name__ == '__main__':
