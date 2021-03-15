@@ -117,8 +117,9 @@ if __name__ == '__main__':
     )
 
     # спрос на  мягкие игрушки в 2 раза выше, чем на железную дорогу
+    # x1/x4>=0
     demand_constraints = LinearConstraint(
-        A=[2, 0, 0, 1, 0],
+        A=[-1, 0, 0, 2, 0],
         lb=0,
         ub=0
     )
@@ -137,7 +138,7 @@ if __name__ == '__main__':
     all_constraints = [
         time_constraints,
         material_constrains,
-        # demand_constraints,
+        demand_constraints,
         amount_constraints,
     ]
 
