@@ -28,8 +28,8 @@
 """
 
 import scipy.optimize as optimizers
-import numpy as np
 from scipy.optimize import LinearConstraint
+import numpy as np
 
 
 def check_condition(N):
@@ -144,23 +144,108 @@ if __name__ == '__main__':
 
     # hess = lambda x: np.zeros(len(x))
     hess = None
+
     ######################################################################
     # ----------------------- РЕШЕНИЕ ------------------------------------
     ######################################################################
-    res1 = optimizers.minimize(
+    res_y1_indep = optimizers.minimize(
         z1,
         x0=x0,
         constraints=all_constraints,
         method='trust-constr',
         hess=hess
     )
-    verbose_res_print(res1.x, title="z1 separate")
+    verbose_res_print(res_y1_indep.x, title="z1 separate")
 
-    res2 = optimizers.minimize(
+    res_y2_indep = optimizers.minimize(
         z2,
         x0=x0,
         constraints=all_constraints,
         method='trust-constr',
         hess=hess
     )
-    verbose_res_print(res2.x, title="z2 separate")
+    verbose_res_print(res_y2_indep.x, title="z2 separate")
+
+    ######################################################################
+    # ----------------------- ВЫДЕЛЕНИЕ ГЛАВНОГО КРИТЕРИЯ ----------------
+    ######################################################################
+    all_constraints_with_main = [
+        *all_constraints,
+        LinearConstraint(
+            A=p_arr,
+            lb=0,
+            ub=(-res_y1_indep.fun) * 0.9
+        )
+    ]
+
+    res_y1_main_crit = optimizers.minimize(
+        z2,
+        x0=x0,
+        constraints=all_constraints_with_main,
+        method='trust-constr',
+        hess=hess
+    )
+    verbose_res_print(res_y1_main_crit.x, title="z2 with selecting z1 as the main criterion")
+
+    ######################################################################
+    # ----------------------- АДДИТИВНАЯ СВЕРТКА -------------------------
+    ######################################################################
+    z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
+
+    res_addit_conv = optimizers.minimize(
+        z_addit,
+        x0=x0,
+        constraints=all_constraints,
+        method='trust-constr',
+        hess=hess
+    )
+    verbose_res_print(res_addit_conv.x, title="z additive convolution")
+
+    ######################################################################
+    # ----------------------- МУЛЬТИПЛИКАТИВНАЯ СВЕРТКА ------------------
+    ######################################################################
+    z_mult = lambda N: 1 / (z1(N) / (-res_y1_indep.fun) * z2(N) / (-res_y2_indep.fun))
+
+    res_mult_conv = optimizers.minimize(
+        z_mult,
+        x0=x0,
+        constraints=all_constraints,
+        method='trust-constr',
+        hess=hess
+    )
+    verbose_res_print(res_mult_conv.x, title="z multiplicative convolution")
+
+    ######################################################################
+    # ----------------------- ПОСЛЕДОВАТЕЛЬНЫЕ УСТУПКИ ------------------
+    ######################################################################
+    all_constraints_for_successive_assignments = [
+        *all_constraints,
+        LinearConstraint(
+            A=p_arr,
+            lb=-res_y1_indep.fun * 0.95,
+            ub=np.inf
+        )
+    ]
+
+    res_succ_assgm = optimizers.minimize(
+        z2,
+        x0=x0,
+        constraints=all_constraints_for_successive_assignments,
+        method='trust-constr',
+        hess=hess
+    )
+    verbose_res_print(res_succ_assgm.x, title="z2 with z1 in constraints (successive assignments)")
+
+    ######################################################################
+    # ----------------ВВЕДЕНИЕ МЕТРИКИ В ПРОСТРАНСТВЕ КРИТЕРИЕВ ----------
+    ######################################################################
+    z_metric = lambda N: -(1 - (z1(N) / -res_y1_indep.fun)) ** 2 + (1 - (z2(N) / -res_y2_indep.fun)) ** 2
+
+    res_metric = optimizers.minimize(
+        z_metric,
+        x0=x0,
+        constraints=all_constraints,
+        method='trust-constr',
+        hess=hess
+    )
+    verbose_res_print(res_metric.x, title="z metric")
