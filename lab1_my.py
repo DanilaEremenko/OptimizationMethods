@@ -42,7 +42,7 @@ def check_condition(N):
 
 
 def get_results(args):
-    return y1(args), y2(args)
+    return y1(args), int(y2(args))
 
 
 def verbose_res_print(N, title):
@@ -53,14 +53,17 @@ def verbose_res_print(N, title):
     print(f"row args        : {', '.join([f'{name} = %.2f' for name in n_arr])}" % (row_args))
     print(f"actual args     : {', '.join([f'{name} = %.2f' for name in n_arr])}" % (actual_args))
 
-    cond_respected = check_condition(actual_args)
+    cond_respected = check_condition(row_args)
 
     print(f"conditions respected: {cond_respected}")
 
-    print(f"\tt remains: {time_ub - sum([t * n for t, n in zip(t_arr, actual_args)])}")
-    print(f"\tm remains: {mat_ub - sum([p * n for p, n in zip(p_arr, actual_args)])}")
+    print(f"\tt row remains: {time_ub - sum([t * n for t, n in zip(t_arr, row_args)])}")
+    print(f"\tm row remains: {mat_ub - sum([p * n for p, n in zip(p_arr, row_args)])}")
+    print(f"\tt actual remains: {time_ub - sum([t * n for t, n in zip(t_arr, actual_args)])}")
+    print(f"\tm actual remains: {mat_ub - sum([p * n for p, n in zip(p_arr, actual_args)])}")
     if cond_respected:
-        print("y1 = %.2f, y2 = %.2f\n" % (get_results(actual_args)))
+        print("row y1 = %.2f, y2 = %.2f" % (get_results(row_args)))
+        print("actual y1 = %.2f, y2 = %.2f\n" % (get_results(actual_args)))
 
 
 def y1(N):  # выручка
