@@ -42,7 +42,8 @@ def check_condition(N):
 
 
 def get_results(args):
-    return y1(args), int(y2(args))
+    actual_args = tuple(int(arg) for arg in args)
+    return y1(actual_args), int(y2(actual_args))
 
 
 def verbose_res_print(N, title):
@@ -147,9 +148,8 @@ if __name__ == '__main__':
 
     # hess = lambda x: np.zeros(len(x))
     hess = None
-
     ######################################################################
-    # ----------------------- РЕШЕНИЕ ------------------------------------
+    # ---------- ПОИСК ОПТИМУМА КРИТЕРИЕВ ПО ОТДЕЛЬНОСТИ -----------------
     ######################################################################
     res_y1_indep = optimizers.minimize(
         z1,
@@ -169,86 +169,156 @@ if __name__ == '__main__':
     )
     verbose_res_print(res_y2_indep.x, title="z2 separate")
 
-    ######################################################################
-    # ----------------------- ВЫДЕЛЕНИЕ ГЛАВНОГО КРИТЕРИЯ ----------------
-    ######################################################################
-    all_constraints_with_main = [
-        *all_constraints,
-        LinearConstraint(
-            A=p_arr,
-            lb=0,
-            ub=(-res_y1_indep.fun) * 0.9
+    solve_determ = False
+    if solve_determ:  # deterministic problem
+        ######################################################################
+        # ----------------------- ВЫДЕЛЕНИЕ ГЛАВНОГО КРИТЕРИЯ ----------------
+        ######################################################################
+        all_constraints_with_main = [
+            time_constraints,
+            demand_constraints,
+            amount_constraints,
+            LinearConstraint(
+                A=p_arr,
+                lb=0,
+                ub=(-res_y1_indep.fun) * 0.9
+            )
+        ]
+
+        res_y1_main_crit = optimizers.minimize(
+            z2,
+            x0=x0,
+            constraints=all_constraints_with_main,
+            method='trust-constr',
+            hess=hess
         )
-    ]
+        verbose_res_print(res_y1_main_crit.x, title="z2 with selecting z1 as the main criterion")
 
-    res_y1_main_crit = optimizers.minimize(
-        z2,
-        x0=x0,
-        constraints=all_constraints_with_main,
-        method='trust-constr',
-        hess=hess
-    )
-    verbose_res_print(res_y1_main_crit.x, title="z2 with selecting z1 as the main criterion")
+        ######################################################################
+        # ----------------------- АДДИТИВНАЯ СВЕРТКА -------------------------
+        ######################################################################
+        z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
 
-    ######################################################################
-    # ----------------------- АДДИТИВНАЯ СВЕРТКА -------------------------
-    ######################################################################
-    z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
-
-    res_addit_conv = optimizers.minimize(
-        z_addit,
-        x0=x0,
-        constraints=all_constraints,
-        method='trust-constr',
-        hess=hess
-    )
-    verbose_res_print(res_addit_conv.x, title="z additive convolution")
-
-    ######################################################################
-    # ----------------------- МУЛЬТИПЛИКАТИВНАЯ СВЕРТКА ------------------
-    ######################################################################
-    z_mult = lambda N: 1 / (z1(N) / (-res_y1_indep.fun) * z2(N) / (-res_y2_indep.fun))
-
-    res_mult_conv = optimizers.minimize(
-        z_mult,
-        x0=x0,
-        constraints=all_constraints,
-        method='trust-constr',
-        hess=hess
-    )
-    verbose_res_print(res_mult_conv.x, title="z multiplicative convolution")
-
-    ######################################################################
-    # ----------------------- ПОСЛЕДОВАТЕЛЬНЫЕ УСТУПКИ ------------------
-    ######################################################################
-    all_constraints_for_successive_assignments = [
-        *all_constraints,
-        LinearConstraint(
-            A=p_arr,
-            lb=-res_y1_indep.fun * 0.95,
-            ub=np.inf
+        res_addit_conv = optimizers.minimize(
+            z_addit,
+            x0=x0,
+            constraints=all_constraints,
+            method='trust-constr',
+            hess=hess
         )
-    ]
+        verbose_res_print(res_addit_conv.x, title="z additive convolution")
 
-    res_succ_assgm = optimizers.minimize(
-        z2,
-        x0=x0,
-        constraints=all_constraints_for_successive_assignments,
-        method='trust-constr',
-        hess=hess
-    )
-    verbose_res_print(res_succ_assgm.x, title="z2 with z1 in constraints (successive assignments)")
+        ######################################################################
+        # ----------------------- МУЛЬТИПЛИКАТИВНАЯ СВЕРТКА ------------------
+        ######################################################################
+        z_mult = lambda N: 1 / (z1(N) / (-res_y1_indep.fun) * z2(N) / (-res_y2_indep.fun))
 
-    ######################################################################
-    # ----------------ВВЕДЕНИЕ МЕТРИКИ В ПРОСТРАНСТВЕ КРИТЕРИЕВ ----------
-    ######################################################################
-    z_metric = lambda N: -(1 - (z1(N) / -res_y1_indep.fun)) ** 2 + (1 - (z2(N) / -res_y2_indep.fun)) ** 2
+        res_mult_conv = optimizers.minimize(
+            z_mult,
+            x0=x0,
+            constraints=all_constraints,
+            method='trust-constr',
+            hess=hess
+        )
+        verbose_res_print(res_mult_conv.x, title="z multiplicative convolution")
 
-    res_metric = optimizers.minimize(
-        z_metric,
-        x0=x0,
-        constraints=all_constraints,
-        method='trust-constr',
-        hess=hess
-    )
-    verbose_res_print(res_metric.x, title="z metric")
+        ######################################################################
+        # ----------------------- ПОСЛЕДОВАТЕЛЬНЫЕ УСТУПКИ ------------------
+        ######################################################################
+        all_constraints_for_successive_assignments = [
+            time_constraints,
+            demand_constraints,
+            amount_constraints,
+            LinearConstraint(
+                A=p_arr,
+                lb=-res_y1_indep.fun * 0.95,
+                ub=np.inf
+            )
+        ]
+
+        res_succ_assgm = optimizers.minimize(
+            z2,
+            x0=x0,
+            constraints=all_constraints_for_successive_assignments,
+            method='trust-constr',
+            hess=hess
+        )
+        verbose_res_print(res_succ_assgm.x, title="z2 with z1 in constraints (successive assignments)")
+
+        ######################################################################
+        # ----------------ВВЕДЕНИЕ МЕТРИКИ В ПРОСТРАНСТВЕ КРИТЕРИЕВ ----------
+        ######################################################################
+        z_metric = lambda N: (1 - (z1(N) / res_y1_indep.fun)) ** 2 + (1 - (z2(N) / res_y2_indep.fun)) ** 2
+
+        res_metric = optimizers.minimize(
+            z_metric,
+            x0=x0,
+            constraints=all_constraints,
+            method='trust-constr',
+            hess=hess
+        )
+        verbose_res_print(res_metric.x, title="z metric")
+
+    else:  # stochastic problem
+        z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
+
+        from scipy.stats import norm
+
+        alpha = [i / 10 for i in range(1, 10, 1)]
+        cumul_list = norm.ppf(q=alpha, loc=0, scale=1)
+
+        # from matplotlib import pyplot as plt
+        #
+        # plt.plot(alpha, t)
+        # plt.show()
+
+        avg_hours = time_ub
+        sigma_hours = int(time_ub * 0.05)
+        res_dict = {
+            'alpha': [], 'cumul': [], 'ub': [],
+            'soft toys': [],
+            'calendar': [],
+            'constructor': [],
+            'railway road': [],
+            'plastic toys': [],
+            'y1': [], 'y2': []
+        }
+        for curr_alpha, curr_cum in zip(alpha, cumul_list):
+            ub = avg_hours - curr_cum * sigma_hours
+            res_dict['alpha'].append(curr_alpha)
+            res_dict['cumul'].append(curr_cum)
+            res_dict['ub'].append(ub)
+
+            new_time_constraints = LinearConstraint(
+                A=t_arr,
+                lb=time_lb,
+                ub=ub
+            )
+            all_constraints = [
+                new_time_constraints,
+                # material_constrains,
+                demand_constraints,
+                amount_constraints,
+            ]
+            res_stoh = optimizers.minimize(
+                z_addit,
+                x0=x0,
+                constraints=all_constraints,
+                method='trust-constr',
+                hess=hess
+            )
+
+            curr_y1, curr_y2 = get_results(res_stoh.x)
+            res_dict['soft toys'].append(int(res_stoh.x[0]))
+            res_dict['calendar'].append(int(res_stoh.x[1]))
+            res_dict['constructor'].append(int(res_stoh.x[2]))
+            res_dict['railway road'].append(int(res_stoh.x[3]))
+            res_dict['plastic toys'].append(int(res_stoh.x[4]))
+
+            res_dict['y1'].append(curr_y1)
+            res_dict['y2'].append(curr_y2)
+
+        import pandas as pd
+
+        res_df = pd.DataFrame(res_dict).round(2)
+        res_df.to_csv('lab_stochastic.csv', sep=';')
