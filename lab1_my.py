@@ -265,7 +265,7 @@ if __name__ == '__main__':
         from scipy.stats import norm
 
         alpha = [i / 10 for i in range(1, 10, 1)]
-        cumul_list = norm.ppf(q=alpha, loc=0, scale=1)
+        quantile_list = norm.ppf(q=alpha, loc=0, scale=1)
 
         # from matplotlib import pyplot as plt
         #
@@ -275,7 +275,7 @@ if __name__ == '__main__':
         avg_hours = time_ub
         sigma_hours = int(time_ub * 0.05)
         res_dict = {
-            'alpha': [], 'cumul': [], 'ub': [],
+            'alpha': [], 'quantile': [], 'ub': [],
             'soft toys': [],
             'calendar': [],
             'constructor': [],
@@ -283,10 +283,10 @@ if __name__ == '__main__':
             'plastic toys': [],
             'y1': [], 'y2': []
         }
-        for curr_alpha, curr_cum in zip(alpha, cumul_list):
-            ub = avg_hours - curr_cum * sigma_hours
+        for curr_alpha, quantile in zip(alpha, quantile_list):
+            ub = avg_hours - quantile * sigma_hours
             res_dict['alpha'].append(curr_alpha)
-            res_dict['cumul'].append(curr_cum)
+            res_dict['quantile'].append(quantile)
             res_dict['ub'].append(ub)
 
             new_time_constraints = LinearConstraint(
