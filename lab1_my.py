@@ -30,6 +30,7 @@
 import scipy.optimize as optimizers
 from scipy.optimize import LinearConstraint
 import numpy as np
+import time
 
 
 def check_condition(N):
@@ -148,6 +149,8 @@ if __name__ == '__main__':
 
     # hess = lambda x: np.zeros(len(x))
     hess = None
+
+    scipy_method = 'trust-constr'
     ######################################################################
     # ---------- ПОИСК ОПТИМУМА КРИТЕРИЕВ ПО ОТДЕЛЬНОСТИ -----------------
     ######################################################################
@@ -155,7 +158,7 @@ if __name__ == '__main__':
         z1,
         x0=x0,
         constraints=all_constraints,
-        method='trust-constr',
+        method=scipy_method,
         hess=hess
     )
     verbose_res_print(res_y1_indep.x, title="z1 separate")
@@ -164,13 +167,14 @@ if __name__ == '__main__':
         z2,
         x0=x0,
         constraints=all_constraints,
-        method='trust-constr',
+        method=scipy_method,
         hess=hess
     )
     verbose_res_print(res_y2_indep.x, title="z2 separate")
 
-    solve_determ = False
+    solve_determ = True
     if solve_determ:  # deterministic problem
+        res_solve_dict = {'name': [], 'time': []}
         ######################################################################
         # ----------------------- ВЫДЕЛЕНИЕ ГЛАВНОГО КРИТЕРИЯ ----------------
         ######################################################################
@@ -185,42 +189,54 @@ if __name__ == '__main__':
             )
         ]
 
+        start_time = time.time()
         res_y1_main_crit = optimizers.minimize(
             z2,
             x0=x0,
             constraints=all_constraints_with_main,
-            method='trust-constr',
+            method=scipy_method,
             hess=hess
         )
-        verbose_res_print(res_y1_main_crit.x, title="z2 with selecting z1 as the main criterion")
+        title = "z2 with selecting z1 as the main criterion"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
+        verbose_res_print(res_y1_main_crit.x, title=title)
 
         ######################################################################
         # ----------------------- АДДИТИВНАЯ СВЕРТКА -------------------------
         ######################################################################
         z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
 
+        start_time = time.time()
         res_addit_conv = optimizers.minimize(
             z_addit,
             x0=x0,
             constraints=all_constraints,
-            method='trust-constr',
+            method=scipy_method,
             hess=hess
         )
-        verbose_res_print(res_addit_conv.x, title="z additive convolution")
+        title = "z additive convolution"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
+        verbose_res_print(res_addit_conv.x, title=title)
 
         ######################################################################
         # ----------------------- МУЛЬТИПЛИКАТИВНАЯ СВЕРТКА ------------------
         ######################################################################
         z_mult = lambda N: 1 / (z1(N) / (-res_y1_indep.fun) * z2(N) / (-res_y2_indep.fun))
 
+        start_time = time.time()
         res_mult_conv = optimizers.minimize(
             z_mult,
             x0=x0,
             constraints=all_constraints,
-            method='trust-constr',
+            method=scipy_method,
             hess=hess
         )
-        verbose_res_print(res_mult_conv.x, title="z multiplicative convolution")
+        title = "z multiplicative convolution"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
+        verbose_res_print(res_mult_conv.x, title=title)
 
         ######################################################################
         # ----------------------- ПОСЛЕДОВАТЕЛЬНЫЕ УСТУПКИ ------------------
@@ -229,6 +245,7 @@ if __name__ == '__main__':
             time_constraints,
             demand_constraints,
             amount_constraints,
+            material_constrains,
             LinearConstraint(
                 A=p_arr,
                 lb=-res_y1_indep.fun * 0.95,
@@ -236,28 +253,102 @@ if __name__ == '__main__':
             )
         ]
 
+        start_time = time.time()
         res_succ_assgm = optimizers.minimize(
             z2,
             x0=x0,
             constraints=all_constraints_for_successive_assignments,
-            method='trust-constr',
+            method=scipy_method,
             hess=hess
         )
-        verbose_res_print(res_succ_assgm.x, title="z2 with z1 in constraints (successive assignments)")
+        title = "z2 with z1 in constraints (successive assignments)"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
+        verbose_res_print(res_succ_assgm.x, title=title)
 
         ######################################################################
         # ----------------ВВЕДЕНИЕ МЕТРИКИ В ПРОСТРАНСТВЕ КРИТЕРИЕВ ----------
         ######################################################################
         z_metric = lambda N: (1 - (z1(N) / res_y1_indep.fun)) ** 2 + (1 - (z2(N) / res_y2_indep.fun)) ** 2
 
+        start_time = time.time()
         res_metric = optimizers.minimize(
             z_metric,
             x0=x0,
             constraints=all_constraints,
-            method='trust-constr',
+            method=scipy_method,
             hess=hess
         )
+        title = "z metric"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
         verbose_res_print(res_metric.x, title="z metric")
+
+        ######################################################################
+        # -------------------------------- NSGA2 -----------------------------
+        ######################################################################
+        from pymoo.factory import get_sampling, get_crossover, get_mutation
+        from pymoo.model.problem import FunctionalProblem
+
+        objs = [
+            lambda N: -y1(N),
+            lambda N: -y2(N)
+        ]
+
+        constr_ieq = [
+            # 0 <= время(N) <= 600
+            lambda N: sum([t * n for t, n in zip(t_arr, N)]) - time_ub,
+            # 0 <= цена(N) <= цены(30 железныз дорог и 4 наборов)
+            lambda N: sum([p * n for p, n in zip(p_arr, N)]) - mat_ub,
+            # спрос на  мягкие игрушки в 2 раза выше, чем на железную дорогу
+            # x1/x4>=0
+            lambda N: -1 * N[0] + 2 * N[3],
+        ]
+
+        my_problem = FunctionalProblem(
+            n_var=5,
+            objs=objs,
+            constr_ieq=constr_ieq,
+            xl=np.array([3, 3, 3, 3, 3]),
+            xu=np.array([mat_ub / p + 1 for p in p_arr])
+        )
+
+        from pymoo.optimize import minimize as pm_minimize
+
+        ######################################################################
+        # --------------------------- EVAL -----------------------------------
+        ######################################################################
+        from pymoo.algorithms.nsga2 import NSGA2
+
+        start_time = time.time()
+        res = pm_minimize(
+            problem=my_problem,
+            algorithm=NSGA2(
+                pop_size=80,
+                n_offsprings=30,
+                sampling=get_sampling("real_random"),
+                crossover=get_crossover("real_sbx", prob=0.9, eta=15),
+                mutation=get_mutation("real_pm", eta=20),
+                eliminate_duplicates=True
+            ),
+            save_history=True
+
+        )
+
+        opt = res.opt[0]
+        X, F, CV = opt.get("X", "__F__", "__CV__")
+        title = "NSGA2"
+        res_solve_dict['name'].append(title)
+        res_solve_dict['time'].append(time.time() - start_time)
+        verbose_res_print(X, title=title)
+
+        ######################################################################
+        # -------------------------------- RESULTS ---------------------------
+        ######################################################################
+        import pandas as pd
+
+        res_solve_df = pd.DataFrame(res_solve_dict)
+
 
     else:  # stochastic problem
         z_addit = lambda N: 0.5 * z1(N) / (-res_y1_indep.fun) + 0.5 * z2(N) / (-res_y2_indep.fun)
@@ -304,7 +395,7 @@ if __name__ == '__main__':
                 z_addit,
                 x0=x0,
                 constraints=all_constraints,
-                method='trust-constr',
+                method=scipy_method,
                 hess=hess
             )
 
