@@ -10,14 +10,6 @@ def print_brood_force(vi, stnry_vector):
         print(f"П{i + 1}k = {round(curr_strny, 2)}")
 
 
-def print_iter_by_strat(vi, stnry_vector):
-    for i, curr_v in enumerate(vi):
-        print(f"v{i + 1}k = {round(curr_v, 2)}")
-
-    print()
-    print("Er = %.2f, Fr(1) = %.2f, Fr(2) = %.2f" % (tuple(stnry_vector)))
-
-
 def brood_force(strat_list: list, state_list: list, p_list: list, r_list: list):
     m = len(state_list)
     Ek_list = []
@@ -52,29 +44,44 @@ def brood_force(strat_list: list, state_list: list, p_list: list, r_list: list):
     return max(range(len(Ek_list)), key=Ek_list.__getitem__)
 
 
-def iteration_by_strategies(strat_list: list, state_list: list, p_list: list, r_list: list, max_steps=100):
-    prev_opt_strat = 0
+def print_iter_by_strat(vi, stnry_vector):
+    for i, curr_v in enumerate(vi):
+        print(f"v{i + 1}k = {round(curr_v, 2)}")
+
+    print()
+    print("Er = %.2f, Fr(1) = %.2f, Fr(2) = %.2f" % (tuple(stnry_vector)))
+
+
+def iter_by_strategies(strat_list: list, state_list: list, p_list: list, r_list: list, max_steps=100):
+    # выбираем произвольную стратегию
     new_opt_strat = 0
+    prev_opt_strat = new_opt_strat
 
     for i in range(max_steps):
         print(f'--iteration step {i}--')
         Im = np.identity(len(state_list))
         pk_matrix = p_list[new_opt_strat]
         rk_matrix = r_list[new_opt_strat]
-
+        # Этап оценивания параметров
+        # 1.Вычисление ожидаемого дохода за один шаг при k-ой стационарной стратегии
         vi = [(pk_matrix[n_from, :] * rk_matrix[n_from, :]).sum() for n_from in range(len(state_list))]
 
+        # 2. Решаем систему
         a = (Im - pk_matrix)
-        a = np.delete(a, 2, 1)
-        a = np.c_[np.array([1] * len(state_list)), a]
-        b = vi
 
-        solve_res = np.linalg.lstsq(a=a, b=b, rcond=None)
+        # Fr(m)=0
+        a = np.delete(a, len(state_list) - 1, 1)
+
+        # добавляем Er
+        a = np.c_[np.array([1] * len(state_list)), a]
+
+        # находим значения Er, Fr1, Fr2
+        solve_res = np.linalg.lstsq(a=a, b=vi, rcond=None)
         stnry_vector = solve_res[0]
 
         print_iter_by_strat(vi=vi, stnry_vector=stnry_vector)
 
-        # TODO как определяем новую стратегию
+        # TODO Этап улучшения стратегии
         new_opt_strat = np.random.randint(0, 4)
 
         if new_opt_strat == prev_opt_strat:
@@ -159,12 +166,12 @@ if __name__ == '__main__':
         p_list=[P1, P2, P3, P4],
         r_list=[R1, R2, R3, R4]
     )
-    print(f"brood_forces: best_strategy = '{strat_list[best_strategy_i]}'")
+    print(f"\n\nbrood_force: best_strategy = '{strat_list[best_strategy_i]}'\n".upper())
 
-    # best_strategy_i = iteration_by_strategies(
-    #     strat_list=strat_list,
-    #     state_list=state_list,
-    #     p_list=[P1, P2, P3, P4],
-    #     r_list=[R1, R2, R3, R4]
-    # )
-    # print(f"iteration: best_strategy = '{strat_list[best_strategy_i]}'")
+    best_strategy_i = iter_by_strategies(
+        strat_list=strat_list,
+        state_list=state_list,
+        p_list=[P1, P2, P3, P4],
+        r_list=[R1, R2, R3, R4]
+    )
+    print(f"\n\niteration: best_strategy = '{strat_list[best_strategy_i]}'\n".upper())
