@@ -1,15 +1,14 @@
 import numpy as np
+from fractions import Fraction
 
 
-def print_table_info(k, vi, stnry_vector):
-    print("-------------")
-    print(f"k = {k + 1}")
+def print_table_info(vi, stnry_vector):
     for i, curr_v in enumerate(vi):
         print(f"v{i + 1}k = {curr_v}")
 
     print()
     for i, curr_strny in enumerate(stnry_vector):
-        print(f"П{i + 1}k = {curr_strny}")
+        print(f"П{i + 1}k = {round(curr_strny, 2)}")
 
 
 def brood_force(strat_list: list, state_list: list, p_list: list, r_list: list):
@@ -18,18 +17,29 @@ def brood_force(strat_list: list, state_list: list, p_list: list, r_list: list):
     for k, (pk_matrix, rk_matrix) in enumerate(zip(p_list, r_list)):
         # 1.Вычисление ожидаемого дохода за один шаг при k-ой стационарной стратегии
         vi = [(pk_matrix[n_from, :] * rk_matrix[n_from, :]).sum() for n_from in range(m)]
+
         # 2.Вычисление матрицы стационарных вероятностей
         Im = np.identity(m)
-        a = np.append(pk_matrix.transpose() - Im, np.array([1] * len(state_list))) \
-            .reshape(len(strat_list), len(state_list))
-        b = [*[0] * m, 1]
-        stnry_vector = np.linalg.solve(a=a, b=b)
+        det = np.linalg.det(pk_matrix.transpose() - Im)
 
-        print_table_info(k=k, vi=vi, stnry_vector=stnry_vector)
+        print("-------------")
+        print(f"k = {k + 1}")
+        print(f"det = {det}")
+        if det == 0:
+            a = np.append(pk_matrix.transpose() - Im, np.array([1] * len(state_list))) \
+                .reshape(len(strat_list), len(state_list))
+            b = [*[0] * m, 1]
+            solve_res = np.linalg.lstsq(a=a, b=b, rcond=None)
+            stnry_vector = solve_res[0]
 
-        # 3.Определение ожидаемого дохода для всех стационарных стратегий
-        Ek_list.append([curr_stnry * curr_vi for curr_stnry, curr_vi in zip(stnry_vector, vi)])
+            print_table_info(vi=vi, stnry_vector=stnry_vector)
 
+            # 3.Определение ожидаемого дохода для всех стационарных стратегий
+            Ek_list.append(round(sum([curr_stnry * curr_vi for curr_stnry, curr_vi in zip(stnry_vector, vi)]), 2))
+        else:
+            Ek_list.append(-1)
+    # 4. Определение номера k оптимальной стационарной стратегии
+    print(f"Ek = {Ek_list}\n")
     return max(range(len(Ek_list)), key=Ek_list.__getitem__)
 
 
