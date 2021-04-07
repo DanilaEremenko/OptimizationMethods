@@ -28,3 +28,32 @@ def get_finit_table_list(N, g_list: list, state_list: list, p_list: list, r_list
         print(f"TABLE\n{table_list[-1]}")
 
     return table_list
+
+
+if __name__ == '__main__':
+    table_list = get_finit_table_list(
+        N=3,
+        g_list=['X1', 'X2'],
+        state_list=['s1', 's2', 's3'],
+        p_list=[
+            np.array([
+                [0.2, 0.5, 0.3],
+                [0.0, 0.5, 0.5],
+                [0.0, 0.0, 1.0]]),
+            np.array([
+                [0.3, 0.6, 0.1],
+                [0.1, 0.6, 0.3],
+                [0.05, 0.4, 0.55]])
+        ],
+        r_list=[
+            np.array([
+                [7, 6, 3],
+                [0, 5, 1],
+                [0, 0, -1]]),
+            np.array([
+                [6, 5, -1],
+                [7, 4, 0],
+                [6, 3, -2]])
+        ],
+        a=1
+    )

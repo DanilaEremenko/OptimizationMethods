@@ -10,6 +10,7 @@ def print_brood_force(vi, stnry_vector):
         print(f"П{i + 1}k = {round(curr_strny, 2)}")
 
 
+# TODO refactor
 def inf_brood_force(state_list: list, p_list: list, r_list: list):
     m = len(state_list)
     Ek_list = []
@@ -52,6 +53,7 @@ def print_iter_by_strat(vi, stnry_vector):
     print("Er = %.2f, Fr(1) = %.2f, Fr(2) = %.2f" % (tuple(stnry_vector)))
 
 
+# TODO refactor
 def inf_iter_by_strategies(state_list: list, p_list: list, r_list: list, max_steps=100):
     # выбираем произвольную стратегию
     new_opt_strat = 0
@@ -92,3 +94,56 @@ def inf_iter_by_strategies(state_list: list, p_list: list, r_list: list, max_ste
             prev_opt_strat = new_opt_strat
 
     return new_opt_strat
+
+
+if __name__ == '__main__':
+    g_list = ['X1', 'X2']
+    desc_list = ['не применять', 'применять']
+    state_list = ['s1', 's2', 's3']
+    p_list = [
+        np.array([
+            [0.2, 0.5, 0.3],
+            [0.0, 0.5, 0.5],
+            [0.0, 0.0, 1.0]]),
+        np.array([
+            [0.3, 0.6, 0.1],
+            [0.1, 0.6, 0.3],
+            [0.05, 0.4, 0.55]])
+    ]
+    r_list = [
+        np.array([
+            [7, 6, 3],
+            [0, 5, 1],
+            [0, 0, -1]]),
+        np.array([
+            [6, 5, -1],
+            [7, 4, 0],
+            [6, 3, -2]])
+    ]
+
+    strat_len = len(g_list) ** len(state_list)
+    p_list_brood = []
+    r_list_brood = []
+    desc_list_brood = []
+    for code in range(strat_len):
+        bin_vect = [(code & (1 << shift)) >> shift for shift in range(len(state_list))]
+
+        p_list_brood.append(np.array([p_list[bin_vect[si]][si] for si in range(len(bin_vect))]))
+        r_list_brood.append(np.array([r_list[bin_vect[si]][si] for si in range(len(bin_vect))]))
+
+        curr_desc = ''.join([f"{g_list[bin_vect[si]]}" for si in range(len(bin_vect))])
+        desc_list_brood.append(curr_desc)
+
+    best_strategy_i = inf_brood_force(
+        state_list=state_list,
+        p_list=p_list_brood,
+        r_list=r_list_brood
+    )
+    print(f"\n\nbrood_force: best_strategy = '{desc_list_brood[best_strategy_i]}'\n".upper())
+
+    best_strategy_i = inf_iter_by_strategies(
+        state_list=state_list,
+        p_list=p_list_brood,
+        r_list=r_list_brood
+    )
+    print(f"\n\niteration: best_strategy = '{desc_list_brood[best_strategy_i]}'\n".upper())
