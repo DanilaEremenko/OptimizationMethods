@@ -10,7 +10,7 @@ def print_brood_force(vi, stnry_vector):
         print(f"П{i + 1}k = {round(curr_strny, 2)}")
 
 
-def brood_force(strat_list: list, state_list: list, p_list: list, r_list: list):
+def brood_force(state_list: list, p_list: list, r_list: list):
     m = len(state_list)
     Ek_list = []
     Im = np.identity(m)
@@ -52,7 +52,7 @@ def print_iter_by_strat(vi, stnry_vector):
     print("Er = %.2f, Fr(1) = %.2f, Fr(2) = %.2f" % (tuple(stnry_vector)))
 
 
-def iter_by_strategies(strat_list: list, state_list: list, p_list: list, r_list: list, max_steps=100):
+def iter_by_strategies(state_list: list, p_list: list, r_list: list, max_steps=100):
     # выбираем произвольную стратегию
     new_opt_strat = 0
     prev_opt_strat = new_opt_strat
@@ -96,82 +96,63 @@ def iter_by_strategies(strat_list: list, state_list: list, p_list: list, r_list:
 
 if __name__ == '__main__':
     # допустимые решения
-    G = {'X1': 'не применять', 'X2': 'применять'}
-
-    # стратегии
-    strat_list = [
-        "вообще не применять",
-        "применять при любом состоянии почвы",
-        "применять когда почва в s1",
-        "применять когда почва в s2"
+    conditions = [
+        {
+            'G': 'X1',
+            'desc': 'не применять',
+            'P': np.array([
+                [0.2, 0.5, 0.3],
+                [0.0, 0.5, 0.5],
+                [0.0, 0.0, 1.0]]),
+            'R': np.array([
+                [7, 6, 3],
+                [0, 5, 1],
+                [0, 0, -1]])
+        },
+        {
+            'G': 'X2',
+            'desc': 'применять',
+            'P': np.array([
+                [0.3, 0.6, 0.1],
+                [0.1, 0.6, 0.3],
+                [0.05, 0.4, 0.55]]),
+            'R': np.array([
+                [6, 5, -1],
+                [7, 4, 0],
+                [6, 3, -2]])
+        }
     ]
 
-    state_list = [
-        "s1 (хорошее)",
-        "s2 (удовлетворительное)",
-        "s3 (плохое)"
-    ]
+    # список состояний
+    state_list = {
+        "s1": "хорошее",
+        "s2": "удовлетворительное",
+        "s3": "плохое"
+    }
 
-    P1 = np.array([
-        [0.2, 0.5, 0.3],
-        [0.0, 0.5, 0.5],
-        [0.0, 0.0, -1.0]
-    ])
+    strat_len = len(conditions) ** len(state_list)
+    p_list = []
+    r_list = []
+    desc_list = []
+    for code in range(strat_len):
+        bin_vect = [(code & (1 << shift)) >> shift for shift in range(len(state_list))]
 
-    P2 = np.array([
-        [0.3, 0.6, 0.1],
-        [0.1, 0.6, 0.3],
-        [0.05, 0.4, 0.55]
-    ])
+        p_list.append(np.array([conditions[bin_vect[si]]['P'][si] for si in range(len(bin_vect))]))
+        r_list.append(np.array([conditions[bin_vect[si]]['R'][si] for si in range(len(bin_vect))]))
 
-    P3 = np.array([
-        [0.3, 0.6, 0.1],
-        [0.0, 0.5, 0.5],
-        [0.0, 0.0, 1.0]
-    ])
-
-    P4 = np.array([
-        [0.2, 0.5, 0.3],
-        [0.1, 0.6, 0.3],
-        [0.0, 0.0, 1.0]
-    ])
-
-    R1 = np.array([
-        [7, 6, 3],
-        [0, 5, 1],
-        [0, 0, 1]
-    ])
-
-    R2 = np.array([
-        [6, 5, -1],
-        [7, 4, 0],
-        [6, 3, -2]
-    ])
-
-    R3 = np.array([
-        [6, 5, -1],
-        [0, 5, 1],
-        [0, 0, -1]
-    ])
-
-    R4 = np.array([
-        [7, 6, 3],
-        [7, 4, 0],
-        [0, 0, -1]
-    ])
+        curr_desc = ''.join([f"{conditions[bin_vect[si]]['G']}" for si in range(len(bin_vect))])
+        desc_list.append(curr_desc)
 
     best_strategy_i = brood_force(
-        strat_list=strat_list,
         state_list=state_list,
-        p_list=[P1, P2, P3, P4],
-        r_list=[R1, R2, R3, R4]
+        p_list=p_list,
+        r_list=r_list
     )
-    print(f"\n\nbrood_force: best_strategy = '{strat_list[best_strategy_i]}'\n".upper())
+    print(f"\n\nbrood_force: best_strategy = '{desc_list[best_strategy_i]}'\n".upper())
 
     best_strategy_i = iter_by_strategies(
-        strat_list=strat_list,
         state_list=state_list,
-        p_list=[P1, P2, P3, P4],
-        r_list=[R1, R2, R3, R4]
+        p_list=p_list,
+        r_list=r_list
     )
-    print(f"\n\niteration: best_strategy = '{strat_list[best_strategy_i]}'\n".upper())
+    print(f"\n\niteration: best_strategy = '{desc_list[best_strategy_i]}'\n".upper())
