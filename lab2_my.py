@@ -43,5 +43,6 @@ if __name__ == '__main__':
                 [2, -1]
             ])
         ],
-        a=0.9
+        a=0.9,
+        verbose=True
     )
