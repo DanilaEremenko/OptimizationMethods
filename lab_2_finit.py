@@ -36,7 +36,7 @@ def get_finit_table_list(N, g_list: list, state_list: list, p_list: list, r_list
         for k in range(k_len):
             for j in range(j_len):
                 table_list[-1][j, k] = table_list[1][j][k] + a * sum(p_list[k][j] * r_prev)
-                verbose_print(verbose, table_list[1][j][k], k, j, a, p_list[k][j], r_list[k][j], table_list[-1][j, k])
+                verbose_print(verbose, table_list[1][j][k], k, j, a, p_list[k][j], r_prev, table_list[-1][j, k])
         print(f"TABLE---------\n{table_list[-1]}\n")
 
     return table_list
